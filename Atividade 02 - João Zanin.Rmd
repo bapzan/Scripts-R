@@ -1,0 +1,170 @@
+---
+title: "Atividade 02 - Análise de sobrevivencia"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+```
+
+```{r}
+require(survival)
+```
+
+
+EXERCÍCIO 
+Os dados da tabela abaixo referem-se aos tempos de sobrevivência (em dias) de pacientes com câncer submetidos à radioterapia (o símbolo + indica  censura).
+Tabela: Tempos de pacientes submetidos à radioterapia.
+
+Obtenha: O ajuste dos modelos exponencial e Weibull para o conjunto de dados de radioterapia, compare os modelos pelas estatísticas AIC, BIC e CAIC e pelo teste TRV. Compare o ajuste dos modelos com o Kaplan-Meier.
+
+
+Vamos armazenar nossos dados
+```{r}
+tempos <- c(7,34,42,63,64,74,83,84,91,108,112,129,133,133,139,140,140,146,149,154,160,160,165,173,176,185,218,225,241,248,273,277,279,297,319,405,417,420,440,523,583,594,1101,1116,1146,1226,1349,1412,1417)
+  
+  
+censur <- c(1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,0,1,1,1,0,1,0,0,0,1)
+```
+
+
+Vamos fazer o ajuste pelos modelos
+Exponencial
+
+```{r}
+##exponencial
+verosi<-function(param){
+alfa<-param[1]
+if(any(alfa < 1e-20)) return(.Machine$double.xmax^.5)
+lv<-censur*(log(1/alfa)-(t/alfa))+(1-censur)*(-(t/alfa))
+sum(-lv)
+}
+valorin<-c(10)
+estima<-optim(valorin,verosi,method="BFGS",hessian=T);
+estima
+```
+
+
+```{r}
+##Weibull
+verosi<-function(param){
+alfa<-param[1]
+tau<-param[2]
+if(any(alfa < 1e-20)) return(.Machine$double.xmax^.5)
+if(any(tau < 1e-20)) return(.Machine$double.xmax^.5)
+lv<-censur*(log(tau)-tau*log(alfa)+(tau-1)*log(t)-((t/alfa)^(tau)))
++(1-censur)*(-(t/alfa)^(tau));
+sum(-lv)
+}
+valorin<-c(51.30523,0.1)
+estima1<-optim(valorin,verosi,method="BFGS",hessian=T);
+estima1
+
+```
+
+
+Vamos comparar os dois modelos com as estatísticas AIC, BIC e CAIC e pelo teste TRV.
+
+```{r}
+criterios=function(value,d,n){
+#value - valor do optim
+#d - numero de parametros
+#n - numero da dados
+l=2*value
+AIC=l+2*d
+BIC=l+d*log(n)
+CAIC=AIC+(2*(d+2)*(d+3))/(n-d-3)
+resul=cbind(l,AIC,CAIC,BIC)
+return(resul)
+}
+IC=function(parametros,hessiana,n){
+Var=solve(hessiana)
+EP=diag(sqrt(Var))
+tvalue=parametros/EP
+LI=parametros-qt(0.975,n)*EP
+LS=parametros+qt(0.975,n)*EP
+valorp=pt(tvalue,n,lower.tail = FALSE)
+resul=cbind(parametros,EP,tvalue,valorp,LI,LS)
+return(resul)
+}
+```
+
+
+Vamos ajustar o modelo exponencial com a função
+```{r}
+verosi<-function(param){
+alfa<-param[1]
+if(any(alfa < 1e-20)) return(.Machine$double.xmax^.5)
+lv<-censur*(log(1/alfa)-(t/alfa))+(1-censur)*(-(t/alfa))
+sum(-lv)
+}
+valorin<-c(10)
+estima<-optim(valorin,verosi,method="BFGS",hessian=T);
+estima
+n=49
+criterios(estima$value,1,n)
+parametros=estima$par
+hessiana=estima$hessian
+IC(parametros,hessiana,n)
+```
+
+Vamos ajustar o modelo weibull
+```{r}
+verosi<-function(param){
+alfa<-param[1]
+tau<-param[2]
+if(any(alfa < 1e-20)) return(.Machine$double.xmax^.5)
+if(any(tau < 1e-20)) return(.Machine$double.xmax^.5)
+lv<-censur*(log(tau)-tau*log(alfa)+(tau-1)*log(t)-((t/alfa)^(tau)))
++(1-censur)*(-(t/alfa)^(tau));
+sum(-lv)
+}
+valorin<-c(51.30523,1)
+estima1<-optim(valorin,verosi,method="BFGS",hessian=T);
+estima1
+criterios(estima1$value,2,n)
+parametros=estima1$par
+hessiana=estima1$hessian
+IC(parametros,hessiana,n)
+```
+
+Vamos calcular o TRV
+```{r}
+trv=395.0932-305.4875
+trv
+```
+Quiquadrado
+```{r}
+quiquadrado=1-pchisq(89.60,1)
+quiquadrado
+```
+
+Portanto, o Exponencial é o mais adequado.
+
+Vamos fazer o kaplan-meier
+```{r}
+ekm=survfit(Surv(tempos,censur)~1)
+```
+
+
+Vamos comparar os dois com o Kaplan-Meier.
+```{r}
+###Weibull###
+alfa=46.481528
+tau=4.454633
+s=exp(-(t/alfa)^(tau))
+###Exponencial###
+alfa=51.30523
+s1=exp(-(t/alfa))
+plot(ekm,conf.int=F, xlab="t",ylab="S(t)")
+lines(t,s,col="blue", lty=1, lwd=2)
+lines(t,s1,col="red", lty=1, lwd=2)
+legend(60,1,c('Kaplan-Meier','Weibull','Exponencial'),bty='o',cex=1,
+col=c('black','blue','red'), lty=c(1,1,1), lwd=c(2,2,2))
+
+```
+
+
+
+

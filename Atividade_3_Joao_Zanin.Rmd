@@ -1,0 +1,119 @@
+---
+title: "Atividade 3"
+output:
+  word_document:
+    keep_md: true
+  html_document:
+    keep_md: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+```
+
+**Atividade 3**
+
+Para os dados de "Sobrevida para o câncer de mama na grande Cuiabá, Brasil: estudo de base populacional", utilize o modelo de Cox para analisar as variáveis citadas abaixo.
+
+- Variáveis
+Raça/cor:
+Não branco: 0
+Branco: 1
+Idade: (Guerra, 2007; Anderson et al., 2006; Joslyn, 2006 – status 
+menopausal)
+<= 50 anos: 0
+> 50 anos: 1
+
+-> Os dados encontram-se no arquivo "dadosmama"
+
+
+**RESOLUÇÃO**
+
+```{r}
+require(survival)
+require(survfit)
+require(readxl)
+```
+
+As variáveis no estudo são:
+
+Raça/cor:
+Não branco = 0
+Branco = 1
+Idade:
+<= 50 anos = 0
+> 50 anos = 1
+
+
+Agora, vamos carregar nossos dados
+```{r}
+dados <- read_excel("C:/Users/joao2/Documents/FACULDADE/Análise de Sobrevivência/Atividade 3/dadosmama.xlsx")
+```
+
+Agora, vamos armazenar as variáveis em objetos
+```{r}
+# Idade
+idade <- dados$Idade
+# Raca
+raca <- dados$Raca
+# tempo
+tempos <- dados$t
+# censur
+cens <- dados$censur
+```
+
+
+```{r}
+par(mfrow=c(1,2))
+fit1<-coxph(Surv(tempos[raca==0],cens[raca==0])~1,data=dados,x=T,method="breslow")
+ss<- survfit(fit1)
+s0<-round(ss$surv,digits=5)
+H0<- -log(s0)
+plot(ss$time,log(H0),xlim=range(c(0,10)),xlab="Tempos",
+ylab=expression(log(Lambda[0]*(t))), bty="n",type="s")
+
+fit2<-coxph(Surv(tempos[raca==1],cens[raca==1])~1,data=dados,x=T,method="breslow")
+ss<- survfit(fit2)
+s0<-round(ss$surv,digits=5)
+H0<- -log(s0)
+lines(ss$time,log(H0),type="s",lty=2,lwd=2)
+legend(200,-3,lty=c(2,1),c("Branco = 1","Não Branco = 0"),lwd=1,bty="n",cex=0.7)
+title("Raça")
+
+fit1<-coxph(Surv(tempos[idade==0],cens[idade==0])~1,data=dados,x=T,method="breslow")
+ss<- survfit(fit1)
+s0<-round(ss$surv,digits=5)
+H0<- -log(s0)
+plot(ss$time,log(H0),xlim=range(c(0,10)),xlab="Tempos",
+ylab=expression(log(Lambda[0]*(t))), bty="n",type="s")
+
+fit2<-coxph(Surv(tempos[idade==1],cens[idade==1])~1,data=dados,x=T,method="breslow")
+ss<- survfit(fit2)
+s0<-round(ss$surv,digits=5)
+H0<- -log(s0)
+lines(ss$time,log(H0),type="s",lty=2,lwd=2)
+legend(150,-3,lty=c(2,1),c("Idade = 1 (> 50 anos)","EC = 0 (<= 50 anos)"),
+lwd=1,bty="n",cex=0.7)
+title("Idade")
+```
+
+Na figura acima temos o Log(Λb0j(t)) versus tempo para as covariáveis: Idade e raça.
+
+Agora, vamos ajustar ao modelo de cox
+
+```{r}
+attach(dados)
+require(survival)
+fit<-coxph(Surv(tempos,cens)~Idade+Raca,data=dados,x=T,method="breslow")
+summary(fit)
+fit$loglik
+```
+
+Portanto, segue algumas interpretações:
+
+1 - O risco de pacientes com idade igual ou inferior a 50 anos de desistirem do tratamento é 58,2% menor que os pacientes com idade inferior a 30 anos.
+
+2 - O risco de pacientes com raça branca de desistirem do tratamento é 56,1% maior se comparado aos pacientes de raça não branca.
+
+
